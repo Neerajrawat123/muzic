@@ -4,8 +4,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { Video, YouTube } from "popyt";
 import { z } from "zod";
 import { authOptions } from "../auth/[...nextauth]/route";
-import Email from "next-auth/providers/email";
-import axios from "axios";
 
 const youtube = new YouTube("AIzaSyCGbRm2kCcHaS8G7aCPZtJjLskD2gr_J5o");
 
@@ -76,7 +74,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
   }
 
 
-  const streams = await prisma.stream.findMany({
+  let streams = await prisma.stream.findMany({
     where: {
       userid: session.user.id,
     },
@@ -96,6 +94,8 @@ export async function GET(req: NextRequest, res: NextResponse) {
     
     
   });
+  
+
   
 
 

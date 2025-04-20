@@ -21,28 +21,32 @@ model User {
   providers Provider  @default(Credentials)
   stream    Stream[]
   upvotes   Upvotes[]
+  space     Space[]
 }
 
 model Stream {
-  id          String     @id @default(uuid())
-  type        StreamType
-  active      Boolean    @default(true)
-  userid      String
-  bigPic      String
-  smallPic    String
-  title       String
-  creator     String
-  url         String
-  extractedId String
-  upvotes     Upvotes[]
-  user        User       @relation(fields: [userid], references: [id])
+  id            String         @id @default(uuid())
+  type          StreamType
+  active        Boolean        @default(true)
+  userid        String
+  bigPic        String
+  smallPic      String
+  title         String
+  creator       String
+  url           String
+  extractedId   String
+  currentStream CurrentStream?
+  upvotes       Upvotes[]
+  user          User           @relation(fields: [userid], references: [id])
+  spaceId       String?
+  space         Space?         @relation(fields: [spaceId], references: [id], onDelete: Cascade)
 }
 
 model Upvotes {
   id       String @id @default(uuid())
   streamId String
   userId   String
-  stream   Stream @relation(fields: [streamId], references: [id])
+  stream   Stream @relation(fields: [streamId], references: [id],onDelete: Cascade)
   user     User   @relation(fields: [userId], references: [id])
 
   @@unique([userId, streamId])
@@ -63,4 +67,23 @@ enum Provider {
   Google
   Github
   Twitter
+}
+
+model CurrentStream {
+  id       String  @id @default(uuid())
+  userId   String
+  streamId String? @unique
+  stream   Stream? @relation(fields: [streamId], references: [id])
+  spaceId  String? @unique
+  space    Space?  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+}
+
+model Space {
+  id            String         @id() @default(cuid())
+  name          String
+  hostId        String
+  host          User           @relation(fields: [hostId], references: [id])
+  streams       Stream[]
+  isActive      Boolean        @default(true)
+  currentStream CurrentStream?
 }

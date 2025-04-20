@@ -1,19 +1,9 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import {
-  Music,
-  Users,
-  ThumbsUp,
-  ThumbsDown,
-  SkipForward,
-  Play,
-  Pause,
-  Volume2,
-  Search,
-} from "lucide-react";
+import { Music, Users, ThumbsUp, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,27 +16,60 @@ import { useSession } from "next-auth/react";
 import debounce from "lodash.debounce";
 import axios from "axios";
 import { mockSongs, mockUsers } from "@/utils/sampleData";
+import ReactPlayer from "react-player/lazy";
+import Loader from "@/app/dashboard/loading";
 
 // Mock data for the dashboard
 
+type Video = {
+  active: boolean;
+  bigPic: string;
+  creator: string;
+
+  extractedId: string;
+  upvotes: [
+    {
+      id: string;
+      streamId: string;
+      userId: string;
+    },
+  ];
+
+  id: string;
+
+  smallPic: string;
+
+  spaceId: string | null;
+
+  title: string;
+
+  type: string;
+
+  url: string;
+
+  userid: string;
+
+  _count: { upvotes: number };
+};
+
 export default function Dashboard() {
   const [isPlaying, setIsPlaying] = useState(true);
-  const [currentSong, setCurrentSong] = useState([]);
-  const [queue, setQueue] = useState([]);
+  const [currentSong, setCurrentSong] = useState<Video | null>(null);
+  const [queue, setQueue] = useState<Video[]>([]);
   const [volume, setVolume] = useState([75]);
   const [songUrl, setSongUrl] = useState("");
   const { data: session } = useSession();
-  console.log(queue)
+  console.log(queue);
 
   useEffect(() => {
-   getStreams()
+    getStreams();
   }, []);
 
   async function getStreams() {
     try {
       const response = await axios.get("/api/streams");
-      const streams:[] = JSON.parse(response.data.streams);
-      setCurrentSong(streams[0])
+      const streams: Video[] = JSON.parse(response.data.streams);
+      setCurrentSong(streams[0]);
       setQueue(streams.slice(1));
     } catch (error) {
       console.error(error);
@@ -54,27 +77,27 @@ export default function Dashboard() {
   }
 
   const handleVote = async (id: string, isUpvote: boolean) => {
-    console.log(id, isUpvote)
-    
-    setQueue(
-      queue
-        .map( (song) => {
-          if (song.id === id) {
-            if(!isUpvote){
-              song._count.upvotes = song._count.upvotes + 1
-        
-            }else{
-              song._count.upvotes = song._count.upvotes - 1
-        
-            }
-          }
+    console.log(id, isUpvote);
 
-          return song;
-        })
+    setQueue(
+      queue.map((song) => {
+        if (song.id === id) {
+          if (!isUpvote) {
+            song._count.upvotes = song._count.upvotes + 1;
+          } else {
+            song._count.upvotes = song._count.upvotes - 1;
+          }
+        }
+
+        return song;
+      })
     );
 
-    const voteResponse = await axios({method: 'post', url: `/api/streams/${isUpvote ? 'downvotes': 'upvotes'}?id=${id}`})
-    getStreams()
+    const voteResponse = await axios({
+      method: "post",
+      url: `/api/streams/${isUpvote ? "downvotes" : "upvotes"}?id=${id}`,
+    });
+    getStreams();
   };
 
   const addSongToStream = async () => {
@@ -97,9 +120,18 @@ export default function Dashboard() {
     }
   };
 
+  async function playnext() {
 
-    
-    
+    try {
+      const response = await axios.delete(`api/streams/delete?id=${currentSong?.id}`);
+      if(response.status === 200){
+       getStreams()
+      }
+    } catch (error) {
+      console.log(error);
+    }
+
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -130,68 +162,27 @@ export default function Dashboard() {
               <AvatarFallback className="text-lg cursor-pointer">
                 {session?.user ? session?.user?.name?.slice(0, 1) : ""}
               </AvatarFallback>
-            </Avatar>              
-
+            </Avatar>
           </div>
         </div>
       </header>
 
-      <div className="container grid flex-1 gap-6 px-4 py-6 md:grid-cols-[1fr_300px] md:px-6 lg:grid-cols-[1fr_350px]">
+      <div className="container grid flex-1 gap-6 px-4 py-2 md:grid-cols-[1fr_300px] md:px-6 lg:grid-cols-[1fr_350px]">
         <div className="flex flex-col gap-6">
           {/* Now Playing */}
           <Card className="overflow-hidden border-purple-500/20 bg-black/40 backdrop-blur-md">
-            <div className="bg-gradient-to-r from-purple-500/80 to-indigo-700/80 p-6">
-              <div className="flex flex-col items-center gap-6 md:flex-row">
-                <div className="relative h-48 w-48 overflow-hidden rounded-lg shadow-lg">
-                  <Image
-                    src={currentSong.bigPic || "/placeholder.svg"}
-                    alt={currentSong.title || 'jhe;'} 
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div className="flex flex-1 flex-col text-white">
-                  <Badge className="mb-2 w-fit bg-white/20 hover:bg-white/30">
-                    Now Playing
-                  </Badge>
-                  <h1 className="text-3xl font-bold">{currentSong.title}</h1>
-                  <p className="text-xl opacity-90">{currentSong.creator}</p>
+            <Suspense fallback={<Loader isLoading={true} />}>
+              <ReactPlayer
+                width={"100%"}
+                height={"450px"}
+                url={currentSong?.url}
+                controls
+                onEnded={() => playnext()}
+              />
+            </Suspense>
 
-                  <div className="mt-6 flex items-center gap-4">
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      className="h-12 w-12 rounded-full bg-white/20 hover:bg-white/30"
-                      onClick={() => setIsPlaying(!isPlaying)}
-                    >
-                      {isPlaying ? (
-                        <Pause className="h-6 w-6" />
-                      ) : (
-                        <Play className="h-6 w-6" />
-                      )}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/30"
-                    >
-                      <SkipForward className="h-5 w-5" />
-                    </Button>
-                    <div className="flex flex-1 items-center gap-2">
-                      <Volume2 className="h-5 w-5" />
-                      <Slider
-                        value={volume}
-                        max={100}
-                        step={1}
-                        className="w-full"
-                        onValueChange={setVolume}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <CardContent className="p-6 text-white">
+          
+            <CardContent className="py-2 px-3 text-white">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ThumbsUp className="h-5 w-5 text-green-400" />
@@ -208,8 +199,9 @@ export default function Dashboard() {
                     <AvatarFallback>{mockUsers[0].name[0]}</AvatarFallback>
                   </Avatar>
                   <span className="text-sm text-white/70">
-                    Added by {currentSong.username}
+                    Added by {currentSong?.userid}
                   </span>
+                  =
                 </div>
               </div>
             </CardContent>
@@ -264,13 +256,19 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1 pr-2">
-                        { <span className="font-medium">{song._count.upvotes}</span> }
+                        {
+                          <span className="font-medium">
+                            {song._count.upvotes}
+                          </span>
+                        }
                       </div>
                       <Button
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 text-green-400 hover:bg-green-500/20 hover:text-green-300"
-                        onClick={() => handleVote(song.id, !!song.upvotes.length)}
+                        onClick={() =>
+                          handleVote(song.id, !!song.upvotes.length)
+                        }
                       >
                         <ThumbsUp className="h-4 w-4" />
                       </Button>
@@ -324,7 +322,10 @@ export default function Dashboard() {
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
+                      <Button onClick={() => playnext()}>
+
                       <span className="text-sm">Vote to Skip</span>
+                      </Button>
                       <Badge variant="outline" className="border-purple-500/50">
                         5 votes
                       </Badge>
