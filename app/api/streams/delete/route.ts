@@ -7,7 +7,7 @@ export async function DELETE(req: NextRequest, res: NextResponse) {
   const streamId = req.nextUrl.searchParams.get("id");
   const session = await getServerSession(authOptions);
 
-  const userId = session?.user?.id;
+  const userId = session?.user.id;
 
   if (!userId) {
     return NextResponse.json({ message: "unauthenticated" }, { status: 404 });

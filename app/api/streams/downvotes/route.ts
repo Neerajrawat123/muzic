@@ -1,6 +1,5 @@
 import {prisma} from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextURL } from "next/dist/server/web/next-url";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { authOptions } from "../../auth/[...nextauth]/route";
@@ -14,11 +13,10 @@ export async function POST(req: NextRequest) {
    try {
  
      const searchParams = req.nextUrl.searchParams;
-     const query: string = searchParams.get('id')
+     const query: string | null = searchParams.get('id')
      const session = await getServerSession(authOptions)
  
-     const userId = session?.user.id
-     console.log('upvote',query, userId)
+     const userId = session?.user?.id
  
      
  
@@ -27,6 +25,12 @@ export async function POST(req: NextRequest) {
              message: 'error to find user'
          })
      }
+
+     if(!query){
+        return NextResponse.json({
+            message: 'stream id is mandatory'
+        })
+    }
  
  
      const upvotes = await prisma.upvotes.delete({

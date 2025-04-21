@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useLayoutEffect, useState } from "react";
+import { Suspense, useContext, useEffect, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Music, Users, ThumbsUp, Search } from "lucide-react";
@@ -18,6 +18,7 @@ import axios from "axios";
 import { mockSongs, mockUsers } from "@/utils/sampleData";
 import ReactPlayer from "react-player/lazy";
 import Loader from "@/app/dashboard/loading";
+import { RoomContext } from "../providers/roomProvider";
 
 // Mock data for the dashboard
 
@@ -59,7 +60,8 @@ export default function Dashboard() {
   const [volume, setVolume] = useState([75]);
   const [songUrl, setSongUrl] = useState("");
   const { data: session } = useSession();
-  console.log(queue);
+  const {room } = useContext(RoomContext)
+  console.log(room)
 
   useEffect(() => {
     getStreams();
@@ -152,11 +154,12 @@ export default function Dashboard() {
               className="flex items-center gap-1 border-purple-500/50 text-white"
             >
               <Users className="h-3.5 w-3.5" />
-              <span>Room: Awesome Mix</span>
+              <span>Room: {room}</span>
             </Badge>
             <Avatar>
               <AvatarImage
-                src="/placeholder.svg?height=32&width=32"
+                src="/next.svg"
+                
                 alt="User"
               />
               <AvatarFallback className="text-lg cursor-pointer">
@@ -193,7 +196,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-1">
                   <Avatar className="h-6 w-6">
                     <AvatarImage
-                      src={mockUsers[0].avatar || "/placeholder.svg"}
+                      src={"/google.png"}
                       alt={mockUsers[0].name}
                     />
                     <AvatarFallback>{mockUsers[0].name[0]}</AvatarFallback>
@@ -241,7 +244,7 @@ export default function Dashboard() {
                       </span>
                       <div className="relative h-10 w-10 overflow-hidden rounded">
                         <Image
-                          src={song?.bigPic || "/placeholder.svg"}
+                          src={song?.bigPic || "./google.svg"}
                           fill
                           alt={song?.title}
                           className="object-cover"
@@ -285,15 +288,15 @@ export default function Dashboard() {
           {/* Room Info */}
           <Card className="border-purple-500/20 bg-black/40 backdrop-blur-md text-white">
             <CardContent className="p-6">
-              <h3 className="text-lg font-bold">Room: Awesome Mix</h3>
+              <h3 className="text-lg font-bold">Room: {room}</h3>
               <p className="text-sm text-white/70">Created by Alex</p>
               <Separator className="my-4 bg-purple-500/20" />
               <div className="space-y-4">
                 <div>
-                  <h4 className="mb-2 text-sm font-medium">Room Code</h4>
+                  <h4 className="mb-2 text-sm font-medium">{room}</h4>
                   <div className="flex items-center gap-2">
                     <Input
-                      value="MUSIC123"
+                      value={room}
                       readOnly
                       className="border-purple-500/30 bg-black/30 text-white focus-visible:ring-purple-500/50"
                     />
@@ -301,8 +304,9 @@ export default function Dashboard() {
                       variant="outline"
                       size="sm"
                       className="border-purple-500/50  hover:bg-purple-500/20 text-black hover:text-white"
+                      onClick={() => navigator.clipboard.writeText(room)}
                     >
-                      Copy
+                       Copy
                     </Button>
                   </div>
                 </div>
@@ -349,7 +353,7 @@ export default function Dashboard() {
                   <div key={user.id} className="flex items-center gap-3">
                     <Avatar>
                       <AvatarImage
-                        src={user.avatar || "/placeholder.svg"}
+                        src={"/google.png" }
                         alt={user.name}
                       />
                       <AvatarFallback className="text-black">

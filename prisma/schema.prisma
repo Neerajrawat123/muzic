@@ -81,6 +81,7 @@ model CurrentStream {
 model Space {
   id            String         @id() @default(cuid())
   name          String
+  code          String
   hostId        String
   host          User           @relation(fields: [hostId], references: [id])
   streams       Stream[]

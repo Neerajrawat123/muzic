@@ -1,11 +1,19 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
-import { Video, YouTube } from "popyt";
+import { Thumbnail, Video, YouTube } from "popyt";
 import { z } from "zod";
 import { authOptions } from "../auth/[...nextauth]/route";
 
 const youtube = new YouTube("AIzaSyCGbRm2kCcHaS8G7aCPZtJjLskD2gr_J5o");
+
+type VideoType = {
+  title: string;
+  channel: {
+    name: string;
+  };
+  thumbnails: Thumbnail;
+};
 
 const YOUTUBE_REGEX =
   /https?:\/\/(www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?:&t=(\d+)s?)?/;
@@ -34,6 +42,7 @@ export async function POST(req: Request, res: NextResponse) {
   const extractedId = body.url.split("=")[1];
 
   const video = await youtube.getVideo(extractedId);
+  console.log(video);
 
   const stream = await prisma.stream.create({
     data: {
@@ -41,10 +50,10 @@ export async function POST(req: Request, res: NextResponse) {
       userid: streamData.userId, // existing user ID
       url: streamData.url,
       extractedId: extractedId,
-      bigPic: video.thumbnails.medium?.url ?? "",
-      smallPic: video.thumbnails.default?.url ?? "",
-      title: video.title,
-      creator: video.channel.name,
+      bigPic: (video as Video)?.thumbnails?.medium?.url ?? "",
+      smallPic: (video as Video).thumbnails.default?.url ?? "",
+      title: (video as Video).title,
+      creator: (video as Video).channel.name,
     },
   });
 
@@ -62,7 +71,7 @@ export async function POST(req: Request, res: NextResponse) {
 export async function GET(req: NextRequest, res: NextResponse) {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user?.email) {
+  if (!session?.user) {
     return NextResponse.json(
       {
         message: "pls authenticate first",
@@ -73,31 +82,28 @@ export async function GET(req: NextRequest, res: NextResponse) {
     );
   }
 
+  if (!session?.user?.id) {
+    throw new Error("User ID missing from session");
+  }
+  
 
   let streams = await prisma.stream.findMany({
     where: {
       userid: session.user.id,
     },
-    include:{
-        _count:{
-            select:{
-                upvotes:true
-            }
+    include: {
+      _count: {
+        select: {
+          upvotes: true,
         },
-        upvotes:{
-          where:{
-            userId: session.user.id
-          }
+      },
+      upvotes: {
+        where: {
+          userId: session.user.id,
         },
-       
+      },
     },
-    
-    
   });
-  
-
-  
-
 
   return NextResponse.json(
     {
