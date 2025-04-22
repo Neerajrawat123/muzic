@@ -1,20 +1,25 @@
-'use client'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { ResponseType } from '@/types/ws'
-import socket from '@/utils/socket'
-import { Label } from '@radix-ui/react-label'
-import { useRouter } from 'next/navigation'
-import React, { FormEvent, useContext, useEffect, useState } from 'react'
+"use client";
+import { RoomContext } from "@/app/providers/roomProvider";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ResponseType } from "@/types/ws";
+import { Label } from "@radix-ui/react-label";
+import axios from "axios";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import React, { FormEvent, useContext, useEffect, useState } from "react";
 
 function Join() {
-
-  const [inp, setInp] = useState('')
-
+  const [inp, setInp] = useState("");
 
   const roomContext = useContext(RoomContext);
-  const router = useRouter();
 
   if (!roomContext) {
     throw new Error("RoomContext must be used within a RoomProvider");
@@ -22,82 +27,71 @@ function Join() {
 
   const { room } = roomContext;
 
-  useEffect(() => {
-    if (!socket) {
-      console.error("socket is not connected");
-      return;
-    }
+  const [roomCode, setRoomCode] = useState("");
 
-    if (!socket.connected) {
-      socket.connect();
-    }
+  const router = useRouter();
 
-    const handleConnect = () => {
-      console.log("✅ Connected:", socket.id);
-    };
-  
-    socket.on("connect", handleConnect);
-  
-    return () => {
-      socket.off("connect", handleConnect); // cleanup
-    };
-
-
-
-
-
-  }, []);
-
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    if (!socket || !socket.connected) {
-      console.error("Socket not connected");
-      return;
-    }
-
-    socket?.emit(
-      "join_room",
-      inp,
-      (response: ResponseType) => {
-        console.log(response)
-        if (response?.status === "ok") {
-          console.log("heloo", response.room);
-          console.log(room);
-          router.push("/dashboard");
-        }else{
-          console.log('enter code is wrong')
-        }
-      }
-    );
+  if (!roomContext) {
+    throw new Error("RoomContext must be used within a RoomProvider");
   }
 
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    console.log("hello");
+    e.preventDefault();
+
+    try {
+      const response = await axios.post("/api/room/join", { roomCode });
+      if (response.status === 200) {
+        const room = JSON.parse(response.data.room)
+        router.push(`/dashboard/${room.code}`)
+
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
 
   return (
     <div className=" w-full h-screen flex justify-center items-center bg-gray-200">
-    <Card className="w-[450px] h-[300px] ">
-      <CardHeader className="flex items-center mb-6">
-        <CardTitle className="font-bold text-3xl m-auto"> Join the Room</CardTitle>
-      </CardHeader>
-      <CardContent>
-      <form id='Create_room' onSubmit={handleSubmit}>
-        <div className="grid w-full items-center gap-4">
-          <div className="flex flex-col space-y-1.5">
-            <Label className='mb-4' htmlFor="name">room code</Label>
-            <Input value={inp} onChange={(e) => setInp(e.target.value)} id="name" placeholder="Enter the no" />
-          </div>
-          
-        </div>
-      </form>
-      </CardContent>
-      <CardFooter>
-          <Button type='submit' form='Create_room' >join the room</Button>
-      </CardFooter>
+      <Card className="w-[450px] h-[360px] ">
+        <CardHeader className="flex items-center mb-6">
+          <CardTitle className="font-bold text-3xl m-auto">
+            {" "}
+            Join the Room
+          </CardTitle>
+        </CardHeader>
 
-     
-    </Card>
-  </div>
-  )
+        <CardContent>
+          <form id="Create_room" onSubmit={handleSubmit}>
+            <div className="grid w-full items-center gap-4">
+              <div className="flex flex-col space-y-1.5">
+                <Label className="mb-4" htmlFor="name">
+                  room code
+                </Label>
+                <Input
+                  value={roomCode}
+                  onChange={(e) => setRoomCode(e.target.value)}
+                  id="name"
+                  placeholder="Enter the no"
+                />
+              </div>
+            </div>
+          </form>
+        </CardContent>
+        <CardFooter className="justify-between">
+          <Button type="submit" form="Create_room">
+            join the room
+          </Button>
+          <Link
+            className="rounded-2xl   text-center text-black underline px-4 py-2 font-semibold  text-lg "
+            href={"/room/create"}
+          >
+            Create Room
+          </Link>
+        </CardFooter>
+      </Card>
+    </div>
+  );
 }
 
-export default Join
+export default Join;

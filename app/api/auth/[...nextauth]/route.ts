@@ -1,9 +1,18 @@
-import NextAuth, { AuthOptions, Session, User } from "next-auth";
+import NextAuth, { AuthOptions, DefaultSession, Session, User } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
 import { prisma } from "@/lib/prisma";
 import { JWT } from "next-auth/jwt";
 import { PrismaClientInitializationError } from "@prisma/client/runtime/library";
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      role?: string | null;
+    } & DefaultSession["user"];
+  }
+}
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -37,7 +46,13 @@ export const authOptions: AuthOptions = {
         });
 
         if (user && session.user) {
-          session.user.id = user.id as string;
+          session.user = {
+            ...session.user,
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          };
         }
       } catch (error) {
         if (error instanceof PrismaClientInitializationError) {

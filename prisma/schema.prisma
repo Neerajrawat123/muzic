@@ -14,14 +14,15 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  name      String?
-  email     String    @unique
-  role      Role      @default(admin)
-  providers Provider  @default(Credentials)
-  stream    Stream[]
-  upvotes   Upvotes[]
-  space     Space[]
+  id          String        @id @default(uuid())
+  name        String?
+  email       String        @unique
+  role        Role          @default(admin)
+  providers   Provider      @default(Credentials)
+  stream      Stream[]
+  upvotes     Upvotes[]
+  space       Space[]
+  memberships SpaceMember[]
 }
 
 model Stream {
@@ -46,7 +47,7 @@ model Upvotes {
   id       String @id @default(uuid())
   streamId String
   userId   String
-  stream   Stream @relation(fields: [streamId], references: [id],onDelete: Cascade)
+  stream   Stream @relation(fields: [streamId], references: [id], onDelete: Cascade)
   user     User   @relation(fields: [userId], references: [id])
 
   @@unique([userId, streamId])
@@ -72,7 +73,7 @@ enum Provider {
 model CurrentStream {
   id       String  @id @default(uuid())
   userId   String
-  streamId String? @unique
+  streamId String @unique
   stream   Stream? @relation(fields: [streamId], references: [id])
   spaceId  String? @unique
   space    Space?  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
@@ -81,10 +82,29 @@ model CurrentStream {
 model Space {
   id            String         @id() @default(cuid())
   name          String
-  code          String
+  code          String         @unique()
   hostId        String
   host          User           @relation(fields: [hostId], references: [id])
   streams       Stream[]
   isActive      Boolean        @default(true)
   currentStream CurrentStream?
+  members       SpaceMember[]
+
+  @@unique([hostId, code]) // Prevent duplicate memberships
+}
+
+model SpaceMember {
+  id       String   @id @default(uuid())
+  userId   String
+  spaceId  String
+  userType UserType @default(member)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  space    Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, spaceId]) // Prevent duplicate memberships
+}
+
+enum UserType {
+  host
+  member
 }

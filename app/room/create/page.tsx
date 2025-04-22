@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { ResponseType } from "@/types/ws";
 import socket from "@/utils/socket";
 import { Label } from "@radix-ui/react-label";
+import axios from "axios";
 import { useRouter } from "next/navigation";
 import React, {
   useState,
@@ -32,56 +33,26 @@ function Create() {
     throw new Error("RoomContext must be used within a RoomProvider");
   }
 
-  const { room, setRoom } = roomContext;
-
-  useEffect(() => {
-    if (!socket) {
-      console.error("socket is not connected");
-      return;
-    }
-
-    if (!socket.connected) {
-      socket.connect();
-    }
-
-    const handleConnect = () => {
-      console.log("✅ Connected:", socket.id);
-    };
   
-    socket.on("connect", handleConnect);
-  
-    return () => {
-      socket.off("connect", handleConnect); // cleanup
-    };
 
 
-
-
-
-  }, []);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    console.log('hello')
     e.preventDefault();
 
-    if (!socket || !socket.connected) {
-      console.error("Socket not connected");
-      return;
+    try {
+      const response = await axios.post('/api/room/create', {roomCode, roomName})
+      if(response.status === 200){
+      const room = JSON.parse(response.data.room)
+        router.push(`/dashboard/${room.code}`)
+      }
+    } catch (error) {
+      
+      console.log(error)
     }
 
-    socket?.emit(
-      "create_room",
-      roomName,
-      roomCode,
-      (response: ResponseType) => {
-        console.log(response)
-        if (response?.status === "ok") {
-          console.log("heloo", response.room);
-          setRoom(response.room);
-          console.log(room);
-          router.push("/dashboard");
-        }
-      }
-    );
+    
   }
   return (
     <div className=" w-full h-screen flex justify-center items-center">

@@ -2,6 +2,9 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+
+
 
 export async function DELETE(req: NextRequest, res: NextResponse) {
   const streamId = req.nextUrl.searchParams.get("id");
@@ -10,7 +13,7 @@ export async function DELETE(req: NextRequest, res: NextResponse) {
   const userId = session?.user.id;
 
   if (!userId) {
-    return NextResponse.json({ message: "unauthenticated" }, { status: 404 });
+    return NextResponse.json({ message: "unauthenticated" }, { status: 401 });
   }
 
   try {
@@ -21,18 +24,28 @@ export async function DELETE(req: NextRequest, res: NextResponse) {
       );
     }
 
+    const currentStream = await prisma.currentStream.delete({
+      where: {
+        streamId: streamId,
+      },
+    });
+
     const deletedstream = await prisma.stream.delete({
       where: {
         userid: userId,
         id: streamId,
-      },
-    });
+      },  
+    });  
+
+
+
+
     return NextResponse.json(
-        { message: "song removed successfully" },
-        { status: 200}
-      );
+      { message: "song removed successfully" },
+      { status: 200 }
+    );
   } catch (error) {
-console.log(error)
+    console.log(error)
     return NextResponse.json(
       { message: "error in removing stream" },
       { status: 404 }

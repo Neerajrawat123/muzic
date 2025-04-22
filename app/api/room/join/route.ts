@@ -1,5 +1,78 @@
+import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
+import { authOptions } from "../../auth/[...nextauth]/route";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+
+const JoinRoomSchema = z.object({
+  roomCode: z.string(),
+});
 
 export async function POST(req: NextRequest, res: NextResponse) {
+  try {
+    const data = await req.json();
+    const session = await getServerSession(authOptions);
+
+    const roomData = JoinRoomSchema.parse(data);
+
+    if (!roomData) {
+      return NextResponse.json(
+        {
+          message: "please enter the room",
+        },
+        {
+          status: 303,
+        }
+      );
+    }
+
+    const room = await prisma.space.findFirst({
+      where: {
+        code: roomData.roomCode,
+      },
+    });
+
+    if (!room) {
+      return NextResponse.json(
+        {
+          message: "no room found",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+
+    const member = await prisma.spaceMember.findFirst({
+        where: {
+            userId: session?.user.id,
+            spaceId: room.id
+        }
+    })
+
+    if (room.hostId !== session?.user.id && !member){
+        const rel = await prisma.spaceMember.create({
+            data: {
+              userId: session?.user.id,
+              spaceId: room.id,
+            },
+          });
+      
+    }
+
     
+
+    return NextResponse.json(
+      {
+        message: "room joined successfully",
+        room: JSON.stringify(room),
+      },
+      {
+        status: 200,
+      }
+    );
+  } catch (error) {
+    console.log(error);
+  }
 }

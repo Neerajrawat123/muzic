@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { authOptions } from "../../auth/[...nextauth]/route";
 const CreateRoomSchema = z.object({
-  room: z.string(),
-  code: z.string(),
+    roomCode: z.string(),
+    roomName: z.string(),
 });
 export async function POST(req: NextRequest, res: NextResponse) {
   try {
@@ -13,6 +13,12 @@ export async function POST(req: NextRequest, res: NextResponse) {
     const session = await getServerSession(authOptions);
 
     const roomData = CreateRoomSchema.parse(data);
+    if(!session?.user?.id){
+        return NextResponse.json({
+            message: "unauthorized",
+            status: 401
+        })
+    }
 
     if (!roomData) {
       return NextResponse.json(
@@ -25,16 +31,28 @@ export async function POST(req: NextRequest, res: NextResponse) {
       );
     }
 
-    const r = await prisma.space.create({
-      data: {
-        name: roomData.room,
-        code: roomData.code,
-        hostId: session?.user.id,
-      },
-    });
-
+    const space = await prisma.$transaction(async (tx) => {
+        const createdSpace = await tx.space.create({
+          data: {
+            name: roomData.roomName,
+            code: roomData.roomCode,
+            hostId: session?.user.id,
+          },
+        });
+      
+        await tx.spaceMember.create({
+          data: {
+            userId: session?.user.id,
+            spaceId: createdSpace.id, 
+            userType: 'host'    // Now we can safely reference it
+          },
+        });
+      
+        return createdSpace;
+      });
     return NextResponse.json({
-        message: 'room created successfully'
+        message: 'room created successfully',
+        room: JSON.stringify(space)
     },{
         status: 200
     })
