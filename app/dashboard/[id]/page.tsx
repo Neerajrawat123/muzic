@@ -13,13 +13,10 @@ import { Separator } from "@/components/ui/separator";
 import { WaveBackground } from "@/components/wave-background";
 import { useSession } from "next-auth/react";
 import axios from "axios";
-import { mockUsers } from "@/utils/sampleData";
 import ReactPlayer from "react-player/lazy";
 import Loader from "@/app/dashboard/loading";
-import { useParams, } from "next/navigation";
+import { useParams } from "next/navigation";
 import { ClimbingBoxLoader } from "react-spinners";
-import { SessionProvider } from "next-auth/react";
-import { currentUser } from "@clerk/nextjs/server";
 
 // Mock data for the dashboard
 
@@ -54,48 +51,41 @@ type Video = {
   _count: { upvotes: number };
 };
 
-interface RoomData  {
-  name: string,
-  code: string,
-  id: string & currentStream
-  
+interface RoomData {
+  name: string;
+  code: string;
+  id: string & currentStream;
 }
 
 type currentStream = {
-  id: string,
-  streamId: string,
-  userId: string,
-  spaceId: string
-}
+  id: string;
+  streamId: string;
+  userId: string;
+  spaceId: string;
+};
 
 type Member = {
-  id: string,
+  id: string;
+  userType: string;
   user: {
-    name: string,
-    id: string
-  }
-}
+    name: string;
+    id: string;
+  };
+};
 
 export default function Dashboard() {
-  return (
-    <SessionProvider>
-      <DashboardContent />
-    </SessionProvider>
-  );
-}
-
-function DashboardContent() {
-  const id = useParams().id
+  const id = useParams().id;
   const [currentSong, setCurrentSong] = useState<Video | null>(null);
   const [queue, setQueue] = useState<Video[]>([]);
   const [songUrl, setSongUrl] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const { data: session } = useSession();
   const [roomCode, setRoomCode] = useState("");
-  const [room, setRoom] = useState<RoomData | null>(null)
-  const [members, setMembers] = useState<Member[]>([])
+  const [room, setRoom] = useState<RoomData | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isTextCopy, setIsTextCopy] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -127,20 +117,32 @@ function DashboardContent() {
     try {
       const response = await axios.get(`/api/room?code=${id}`);
       if (response.status === 200) {
-        const roomData = typeof response.data.room === 'string' 
-          ? JSON.parse(response.data.room) 
-          : response.data.room;
-        
-        const membersData = typeof response.data.members === 'string'
-          ? JSON.parse(response.data.members)
-          : response.data.members;
+        const roomData =
+          typeof response.data.room === "string"
+            ? JSON.parse(response.data.room)
+            : response.data.room;
+
+        let membersData =
+          typeof response.data.members === "string"
+            ? JSON.parse(response.data.members)
+            : response.data.members;
+
+        // Sort members with host at the top
+        membersData = membersData.sort((a: Member, b: Member) => {
+          // If a is host, it should come first
+          if (a.userType === 'host') return -1;
+          // If b is host, it should come first
+          if (b.userType === 'host') return 1;
+          // If neither is host, maintain original order
+          return 0;
+        });
 
         setMembers(membersData);
         const newRoom = {
           name: roomData.name,
           code: roomData.code,
           id: roomData.id,
-          currentStream: roomData.currentStream
+          currentStream: roomData.currentStream,
         };
         setRoom(newRoom);
         setRoomCode(roomData.code);
@@ -160,34 +162,38 @@ function DashboardContent() {
     try {
       console.log("Fetching streams for room:", room.id);
       const response = await axios.get(`/api/streams?spaceId=${room.id}`);
-      
-      if(response.status === 202){
+
+      if (response.status === 202) {
         setCurrentSong(null);
         setQueue([]);
         return;
       }
 
-      const streams: Video[] = typeof response.data.streams === 'string' 
-        ? JSON.parse(response.data.streams) 
-        : response.data.streams;
+      const streams: Video[] =
+        typeof response.data.streams === "string"
+          ? JSON.parse(response.data.streams)
+          : response.data.streams;
 
-        const currentStream: currentStream = typeof response.data.streams === 'string' 
-        ? JSON.parse(response.data.currentStream) 
-        : response.data.currentStream;
+      const currentStream: currentStream =
+        typeof response.data.streams === "string"
+          ? JSON.parse(response.data.currentStream)
+          : response.data.currentStream;
 
       // Find current song
-      const newCurrentSong = streams.find(stream => stream.id === currentStream.streamId) || null;
-      
+      const newCurrentSong =
+        streams.find((stream) => stream.id === currentStream.streamId) || null;
+
       // Only update if the song has changed
       if (newCurrentSong?.id !== currentSong?.id) {
-        console.log('helo', newCurrentSong)
+        console.log("helo", newCurrentSong);
         setCurrentSong(newCurrentSong);
       }
 
       // Update queue with remaining songs
-      const newQueue = streams.filter(stream => stream.id !== newCurrentSong?.id);
+      const newQueue = streams.filter(
+        (stream) => stream.id !== newCurrentSong?.id
+      );
       setQueue(newQueue);
-      
     } catch (error) {
       console.error(error);
     }
@@ -228,7 +234,7 @@ function DashboardContent() {
         type: "Youtube",
         userId: session?.user?.id,
         url: songUrl,
-        spaceId: room?.id
+        spaceId: room?.id,
       });
 
       if (response.status === 201) {
@@ -246,7 +252,9 @@ function DashboardContent() {
   async function playnext() {
     try {
       setIsLoading(true);
-      const response = await axios.delete(`/api/streams/delete?id=${currentSong?.id}`);
+      const response = await axios.delete(
+        `/api/streams/delete?id=${currentSong?.id}`
+      );
       if (response.status === 200) {
         await getStreams();
       }
@@ -279,7 +287,7 @@ function DashboardContent() {
           <Card className="border-red-500/20 bg-black/40 backdrop-blur-md text-white p-6">
             <h3 className="text-lg font-bold text-red-400">Error</h3>
             <p className="text-sm text-white/70">{error}</p>
-            <Button 
+            <Button
               className="mt-4 bg-purple-600 hover:bg-purple-700"
               onClick={() => {
                 setError(null);
@@ -298,7 +306,9 @@ function DashboardContent() {
               <div className="flex items-center gap-2">
                 <Link href="/" className="flex items-center gap-2">
                   <Music className="h-6 w-6 text-purple-400" />
-                  <span className="text-xl font-bold text-white">MusicRoom</span>
+                  <span className="text-xl font-bold text-white">
+                    MusicRoom
+                  </span>
                 </Link>
               </div>
               <div className="flex items-center gap-4">
@@ -306,15 +316,10 @@ function DashboardContent() {
                   variant="outline"
                   className="flex items-center gap-1 border-purple-500/50 text-white"
                 >
-                  <Users className="h-3.5 w-3.5" />
-                  <span>Room: hello</span>
+                  <Users className="h-7 w-7" />
+                  <span>Room: {room?.name}</span>
                 </Badge>
                 <Avatar>
-                  <AvatarImage
-                    src="/next.svg"
-
-                    alt="User"
-                  />
                   <AvatarFallback className="text-lg cursor-pointer">
                     {session?.user ? session?.user?.name?.slice(0, 1) : ""}
                   </AvatarFallback>
@@ -342,10 +347,9 @@ function DashboardContent() {
                     </div>
                   )}
                 </Suspense>
-
-
-                <CardContent className="py-2 px-3 text-white">
-                  <div className="flex items-center justify-between">
+                {currentSong && (
+                  <CardContent className="py-2 px-3 text-white">
+                    <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <ThumbsUp className="h-5 w-5 text-green-400" />
                       <span className="text-lg font-medium">
@@ -356,38 +360,28 @@ function DashboardContent() {
                       <Avatar className="h-6 w-6">
                         <AvatarImage
                           src={"/google.png"}
-                          alt='creater of the song'
+                          alt="creater of the song"
                         />
-                        <AvatarFallback>{members[0]?.user?.name[0]}</AvatarFallback>
+                        <AvatarFallback>
+                          {members[0]?.user?.name[0]}
+                        </AvatarFallback>
                       </Avatar>
                       <span className="text-sm text-white/70">
-                        Added by { }
-
+                        Added by {}
                         <span className="text-lg ml-1 font-medium">
                           {session?.user?.name}
-
                         </span>
                       </span>
-
                     </div>
                   </div>
-                </CardContent>
+                    </CardContent>)}
               </Card>
 
               {/* Song Queue */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-white">Up Next</h2>
-                  <div className="relative w-full max-w-sm">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-white/50" />
-                    <Input
-                      type="search"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search for a song..."
-                      className="w-full border-purple-500/30 bg-black/30 pl-9 text-white placeholder:text-white/50 focus-visible:ring-purple-500/50 backdrop-blur-sm"
-                    />
-                  </div>
+                  
                 </div>
                 <div className="rounded-lg border border-purple-500/20 bg-black/40 shadow-sm backdrop-blur-md">
                   <div className="p-4">
@@ -398,7 +392,9 @@ function DashboardContent() {
                     </div>
                   </div>
                   <Separator className="bg-purple-500/20" />
-                  <div className="divide-y divide-purple-500/20">
+                  {
+                    queue.length > 0 ? (
+                      <div className="divide-y divide-purple-500/20">
                     {queue.map((song, index) => (
                       <div
                         key={song?.id}
@@ -448,7 +444,13 @@ function DashboardContent() {
                         </div>
                       </div>
                     ))}
-                  </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-20 bg-black/20">
+                        <p className="text-white/70">No song in queue</p>
+                      </div>
+                    )
+                  }
                 </div>
               </div>
             </div>
@@ -459,7 +461,7 @@ function DashboardContent() {
               <Card className="border-purple-500/20 bg-black/40 backdrop-blur-md text-white">
                 <CardContent className="p-6">
                   <h3 className="text-lg font-bold">Room: {room?.name}</h3>
-                  <p className="text-sm text-white/70">Created by Alex</p>
+                  <p className="text-sm text-white/70">Created by {members[0]?.user?.name}</p>
                   <Separator className="my-4 bg-purple-500/20" />
                   <div className="space-y-4">
                     <div>
@@ -474,35 +476,50 @@ function DashboardContent() {
                           variant="outline"
                           size="sm"
                           className="border-purple-500/50  hover:bg-purple-500/20 text-black hover:text-white"
-                          onClick={() => navigator.clipboard.writeText(room?.code || "")}
+                          onClick={() =>
+                          {
+                            navigator.clipboard.writeText(room?.code || "")
+                            setIsTextCopy(true)
+                          }
+                        }
                         >
-                          Copy
+                          {isTextCopy ? "Copied" : "Copy"}
                         </Button>
                       </div>
                     </div>
                     <div>
-                      <h4 className="mb-2 text-sm font-medium">Room Settings</h4>
+                      <h4 className="mb-2 text-sm font-medium">
+                        Room Settings
+                      </h4>
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
+                        {/* <div className="flex items-center justify-between">
                           <span className="text-sm">Public Room</span>
-                          <Badge variant="outline" className="border-purple-500/50">
+                          <Badge
+                            variant="outline"
+                            className="border-purple-500/50"
+                          >
                             On
                           </Badge>
-                        </div>
-                        <div className="flex items-center justify-between">
+                        </div> */}
+                        {/* <div className="flex items-center justify-between">
                           <span className="text-sm">Max Queue</span>
-                          <Badge variant="outline" className="border-purple-500/50">
+                          <Badge
+                            variant="outline"
+                            className="border-purple-500/50"
+                          >
                             50 songs
                           </Badge>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <Button onClick={() => playnext()}>
-
-                            <span className="text-sm">Vote to Skip</span>
+                        </div> */}
+                        <div className="flex items-center justify-between bg-transparent">
+                          <Button className="bg-purple-700" onClick={() => playnext()}>
+                            <span className="text-sm ">Skip song</span>
                           </Button>
-                          <Badge variant="outline" className="border-purple-500/50">
+                          {/* <Badge
+                            variant="outline"
+                            className="border-purple-500/50"
+                          >
                             5 votes
-                          </Badge>
+                          </Badge> */}
                         </div>
                       </div>
                     </div>
@@ -532,8 +549,11 @@ function DashboardContent() {
                         </Avatar>
                         <div>
                           <div className="font-medium">{user.user.name}</div>
-                          {session?.user?.id === user.user.id && (
-                            <div className="text-xs text-white/50">Room Owner</div>
+                          {user.userType === 'host' && (
+                            <div className="text-xs text-purple-400">Room Host</div>
+                          )}
+                          {session?.user?.id === user.user.id && user.userType !== 'host' && (
+                            <div className="text-xs text-white/50">You</div>
                           )}
                         </div>
                       </div>
@@ -571,4 +591,3 @@ function DashboardContent() {
     </div>
   );
 }
-

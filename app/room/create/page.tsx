@@ -10,14 +10,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ResponseType } from "@/types/ws";
-import socket from "@/utils/socket";
 import { Label } from "@radix-ui/react-label";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import React, {
   useState,
-  useEffect,
   useContext,
   FormEvent,
 } from "react";

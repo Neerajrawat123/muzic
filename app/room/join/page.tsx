@@ -9,15 +9,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ResponseType } from "@/types/ws";
 import { Label } from "@radix-ui/react-label";
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { FormEvent, useContext, useEffect, useState } from "react";
+import React, { FormEvent, useContext,  useState } from "react";
 
 function Join() {
-  const [inp, setInp] = useState("");
 
   const roomContext = useContext(RoomContext);
 
@@ -25,7 +23,6 @@ function Join() {
     throw new Error("RoomContext must be used within a RoomProvider");
   }
 
-  const { room } = roomContext;
 
   const [roomCode, setRoomCode] = useState("");
 

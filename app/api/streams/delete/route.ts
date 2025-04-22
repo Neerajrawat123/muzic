@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
 
 
 
@@ -30,12 +29,12 @@ export async function DELETE(req: NextRequest, res: NextResponse) {
       },
     });
 
-    const deletedstream = await prisma.stream.delete({
+    await prisma.stream.delete({
       where: {
         userid: userId,
         id: streamId,
-      },  
-    });  
+      },
+    });
 
 
 

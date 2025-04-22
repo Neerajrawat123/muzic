@@ -50,7 +50,6 @@ export async function GET(req: NextRequest, res: NextResponse) {
             const room = await tx.space.findFirst({
                 where: {
                   code: roomCode,
-                  hostId: session?.user.id,
                 },
                 include: {
                   currentStream: true
