@@ -1,11 +1,11 @@
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/auth.config";
 import { NextRequest, NextResponse } from "next/server";
-import { authOptions } from "../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 
 
 
-export async function DELETE(req: NextRequest, res: NextResponse) {
+export async function DELETE(req: NextRequest, ) {
   const streamId = req.nextUrl.searchParams.get("id");
   const session = await getServerSession(authOptions);
 
@@ -23,7 +23,7 @@ export async function DELETE(req: NextRequest, res: NextResponse) {
       );
     }
 
-    const currentStream = await prisma.currentStream.delete({
+    await prisma.currentStream.delete({
       where: {
         streamId: streamId,
       },

@@ -1,6 +1,6 @@
 'use client'
 
-import { getSession, SessionProvider, useSession } from "next-auth/react"
+import { SessionProvider} from "next-auth/react"
 import React from "react"
 
 

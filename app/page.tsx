@@ -1,6 +1,6 @@
 import { GradientBackground } from "@/components/gradiant-background";
 import { getServerSession } from "next-auth";
-import { authOptions } from "./api/auth/[...nextauth]/route";
+import { authOptions } from "@/app/api/auth/auth.config";
 import Navigation from "@/components/navigation";
 import HeroSection from "@/components/heroSection";
 import Features from "@/components/features";
@@ -10,10 +10,6 @@ export default async function Home() {
   const session = await getServerSession(authOptions);
   console.log(session);
 
-
- 
-
-
   return (
     <div className="flex min-h-screen flex-col">
       <GradientBackground />
@@ -22,7 +18,6 @@ export default async function Home() {
 
       {/* Hero Section */}
       <HeroSection />
-
 
       {/* Features Section */}
       <Features />

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, Dispatch, useState } from 'react'
+import React, { createContext,  useState } from 'react'
 
 type RoomContextType = {
     room: string,

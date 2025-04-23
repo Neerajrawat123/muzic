@@ -1,8 +1,8 @@
-import { List, Music, ThumbsUp } from 'lucide-react'
+import {  Music, ThumbsUp } from 'lucide-react'
 import React from 'react'
 import { Button } from './ui/button'
 import Link from 'next/link'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/app/api/auth/auth.config';
 import { getServerSession } from 'next-auth';
 
 export default async function HeroSection() {

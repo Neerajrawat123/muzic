@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/auth.config";
 import { NextRequest, NextResponse } from "next/server";
-import { authOptions } from "../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -8,12 +8,21 @@ const JoinRoomSchema = z.object({
   roomCode: z.string(),
 });
 
-export async function POST(req: NextRequest, res: NextResponse) {
+export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
     const session = await getServerSession(authOptions);
 
     const roomData = JoinRoomSchema.parse(data);
+
+
+    if(!session?.user?.id){
+        return NextResponse.json({
+            message: 'unauthorized'
+        },{
+            status: 401
+        })
+    }
 
     if (!roomData) {
       return NextResponse.json(
@@ -52,7 +61,7 @@ export async function POST(req: NextRequest, res: NextResponse) {
     })
 
     if (room.hostId !== session?.user.id && !member){
-        const rel = await prisma.spaceMember.create({
+         await prisma.spaceMember.create({
             data: {
               userId: session?.user.id,
               spaceId: room.id,

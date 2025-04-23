@@ -1,20 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
-import { Thumbnail, Video, YouTube } from "popyt";
+import {  Video, YouTube } from "popyt";
 import { z } from "zod";
-import { authOptions } from "../auth/[...nextauth]/route";
-import { ClimbingBoxLoader } from "react-spinners";
+import { authOptions } from "@/app/api/auth/auth.config";
 
 const youtube = new YouTube(process.env.YOUTUBE_API_KEY as string);
 
-type VideoType = {
-  title: string;
-  channel: {
-    name: string;
-  };
-  thumbnails: Thumbnail;
-};
+
 
 const YOUTUBE_REGEX =
   /https?:\/\/(www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?:&t=(\d+)s?)?/;
@@ -26,7 +19,7 @@ const streamSchema = z.object({
   spaceId: z.string()
 });
 
-export async function POST(req: Request, res: NextResponse) {
+export async function POST(req: Request) {
  try {
    const body = await req.json();
  
@@ -95,7 +88,7 @@ export async function POST(req: Request, res: NextResponse) {
  }
 }
 
-export async function GET(req: NextRequest, res: NextResponse) {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const searchParams = req.nextUrl.searchParams;
   const spaceId = searchParams.get('spaceId');
@@ -127,7 +120,7 @@ export async function GET(req: NextRequest, res: NextResponse) {
   }
   
 
-  let streams = await prisma.stream.findMany({
+  const streams = await prisma.stream.findMany({
     where: {
       spaceId: spaceId,
     },

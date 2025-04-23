@@ -2,7 +2,7 @@ import { Music } from 'lucide-react'
 import React from 'react'
 import { Button } from './ui/button'
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/app/api/auth/auth.config';
 import Link from 'next/link';
 
     async function Navigation() {

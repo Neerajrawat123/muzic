@@ -1,13 +1,9 @@
 import {prisma} from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import { authOptions } from "@/app/api/auth/auth.config";
 
-const upvoteSchema = z.object({
-    streamId: z.string(),
-    userId: z.string()
-})
+
 
 export async function POST(req: NextRequest) {
    try {
@@ -33,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
  
  
-     const upvotes = await prisma.upvotes.delete({
+     await prisma.upvotes.delete({
         where: {
            userId_streamId: {
             userId: userId,

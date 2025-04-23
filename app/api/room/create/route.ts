@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/auth.config";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { authOptions } from "../../auth/[...nextauth]/route";
 const CreateRoomSchema = z.object({
     roomCode: z.string(),
     roomName: z.string(),
 });
-export async function POST(req: NextRequest, res: NextResponse) {
+export async function POST(req: NextRequest, ) {
   try {
     const data = await req.json();
     const session = await getServerSession(authOptions);

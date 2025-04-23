@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Music, Users, ThumbsUp, Search } from "lucide-react";
+import { Music, Users, ThumbsUp} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,7 +18,6 @@ import Loader from "@/app/dashboard/loading";
 import { useParams } from "next/navigation";
 import { ClimbingBoxLoader } from "react-spinners";
 
-// Mock data for the dashboard
 
 type Video = {
   active: boolean;
@@ -54,7 +53,8 @@ type Video = {
 interface RoomData {
   name: string;
   code: string;
-  id: string & currentStream;
+  id: string;
+  currentStream: currentStream | null;
 }
 
 type currentStream = {
@@ -78,7 +78,6 @@ export default function Dashboard() {
   const [currentSong, setCurrentSong] = useState<Video | null>(null);
   const [queue, setQueue] = useState<Video[]>([]);
   const [songUrl, setSongUrl] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
   const { data: session } = useSession();
   const [roomCode, setRoomCode] = useState("");
   const [room, setRoom] = useState<RoomData | null>(null);
@@ -86,75 +85,9 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTextCopy, setIsTextCopy] = useState(false);
+  const [isAddingSong, setIsAddingSong] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        await getRoomDetails();
-        // Only get streams after room details are loaded
-        if (room?.id) {
-          await getStreams();
-        }
-      } catch (err) {
-        setError("Failed to load room data");
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [id]); // Keep id as dependency
-
-  // Add another useEffect to handle room changes
-  useEffect(() => {
-    if (room?.id) {
-      getStreams();
-    }
-  }, [room?.id]); // This will trigger when room.id changes
-
-  async function getRoomDetails() {
-    try {
-      const response = await axios.get(`/api/room?code=${id}`);
-      if (response.status === 200) {
-        const roomData =
-          typeof response.data.room === "string"
-            ? JSON.parse(response.data.room)
-            : response.data.room;
-
-        let membersData =
-          typeof response.data.members === "string"
-            ? JSON.parse(response.data.members)
-            : response.data.members;
-
-        // Sort members with host at the top
-        membersData = membersData.sort((a: Member, b: Member) => {
-          // If a is host, it should come first
-          if (a.userType === 'host') return -1;
-          // If b is host, it should come first
-          if (b.userType === 'host') return 1;
-          // If neither is host, maintain original order
-          return 0;
-        });
-
-        setMembers(membersData);
-        const newRoom = {
-          name: roomData.name,
-          code: roomData.code,
-          id: roomData.id,
-          currentStream: roomData.currentStream,
-        };
-        setRoom(newRoom);
-        setRoomCode(roomData.code);
-      }
-    } catch (error) {
-      setError("Failed to load room details");
-      console.error(error);
-      throw error;
-    }
-  }
-
-  async function getStreams() {
+  const getStreams = useCallback(async () => {
     if (!room?.id) {
       console.log("No room id available yet");
       return;
@@ -169,27 +102,21 @@ export default function Dashboard() {
         return;
       }
 
-      const streams: Video[] =
-        typeof response.data.streams === "string"
-          ? JSON.parse(response.data.streams)
-          : response.data.streams;
+      const streams: Video[] = typeof response.data.streams === "string"
+        ? JSON.parse(response.data.streams)
+        : response.data.streams;
 
-      const currentStream: currentStream =
-        typeof response.data.streams === "string"
-          ? JSON.parse(response.data.currentStream)
-          : response.data.currentStream;
+      const currentStream: currentStream = typeof response.data.streams === "string"
+        ? JSON.parse(response.data.currentStream)
+        : response.data.currentStream;
 
-      // Find current song
-      const newCurrentSong =
-        streams.find((stream) => stream.id === currentStream.streamId) || null;
+      const newCurrentSong = streams.find((stream) => stream.id === currentStream.streamId) || null;
 
-      // Only update if the song has changed
       if (newCurrentSong?.id !== currentSong?.id) {
         console.log("helo", newCurrentSong);
         setCurrentSong(newCurrentSong);
       }
 
-      // Update queue with remaining songs
       const newQueue = streams.filter(
         (stream) => stream.id !== newCurrentSong?.id
       );
@@ -197,39 +124,147 @@ export default function Dashboard() {
     } catch (error) {
       console.error(error);
     }
-  }
+  }, [room?.id, currentSong?.id]);
 
-  const handleVote = async (id: string, isUpvote: boolean) => {
-    console.log(id, isUpvote);
+  const getRoomDetails = useCallback(async () => {
+    try {
+      const response = await axios.get(`/api/room?code=${id}`);
+      if (response.status === 200) {
+        const roomData = typeof response.data.room === "string"
+          ? JSON.parse(response.data.room)
+          : response.data.room;
 
-    setQueue(
-      queue.map((song) => {
-        if (song.id === id) {
-          if (!isUpvote) {
-            song._count.upvotes = song._count.upvotes + 1;
-          } else {
-            song._count.upvotes = song._count.upvotes - 1;
-          }
+        let membersData = typeof response.data.members === "string"
+          ? JSON.parse(response.data.members)
+          : response.data.members;
+
+        if (!roomData || !membersData) {
+          throw new Error("Invalid room data received");
         }
 
-        return song;
-      })
-    );
+        membersData = membersData.sort((a: Member, b: Member) => {
+          if (a.userType === "host") return -1;
+          if (b.userType === "host") return 1;
+          return 0;
+        });
 
-    const voteResponse = await axios({
-      method: "post",
-      url: `/api/streams/${isUpvote ? "downvotes" : "upvotes"}?id=${id}`,
-    });
-    getStreams();
+        setMembers(membersData);
+        
+        const currentStream = roomData.currentStream || null;
+        
+        const newRoom = {
+          name: roomData.name || "",
+          code: roomData.code || "",
+          id: roomData.id || "",
+          currentStream,
+        };
+
+        if (!newRoom.id || !newRoom.code) {
+          throw new Error("Missing required room data");
+        }
+
+        setRoom(newRoom);
+        setRoomCode(newRoom.code);
+      } else {
+        throw new Error(`Unexpected response status: ${response.status}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to load room details";
+      setError(errorMessage);
+      console.error("Room details error:", error);
+      throw error;
+    }
+  }, [id]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        await getRoomDetails();
+        if (room?.id) {
+          await getStreams();
+        }
+      } catch (err) {
+        setError("Failed to load room data");
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [getRoomDetails, getStreams, room?.id]);
+
+  // Add another useEffect to handle room changes
+  useEffect(() => {
+    if (room?.id) {
+      getStreams();
+    }
+  }, [room?.id, getStreams]);
+
+  // Add useEffect to handle song changes
+  useEffect(() => {
+    if (currentSong?.url) {
+      console.log("Current song changed:", currentSong.title);
+    }
+  }, [currentSong?.url, currentSong?.title]);
+
+  const handleVote = async (id: string, isUpvote: boolean) => {
+    try {
+      // Optimistic update
+      setQueue(prevQueue => 
+        prevQueue.map(song => {
+          if (song.id === id) {
+            return {
+              ...song,
+              _count: {
+                ...song._count,
+                upvotes: isUpvote 
+                  ? song._count.upvotes - 1 
+                  : song._count.upvotes + 1
+              }
+            };
+          }
+          return song;
+        })
+      );
+
+      const voteResponse = await axios({
+        method: "post",
+        url: `/api/streams/${isUpvote ? "downvotes" : "upvotes"}?id=${id}`,
+      });
+
+      if (voteResponse.status !== 200) {
+        // Revert optimistic update if the API call fails
+        await getStreams();
+        throw new Error("Failed to update vote");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to process vote";
+      setError(errorMessage);
+      console.error("Vote error:", error);
+      // Revert optimistic update
+      await getStreams();
+    }
   };
+
+  // Add debounced copy function
+  const copyRoomCode = useCallback(() => {
+    if (room?.code) {
+      navigator.clipboard.writeText(room.code);
+      setIsTextCopy(true);
+      setTimeout(() => setIsTextCopy(false), 2000);
+    }
+  }, [room?.code]);
 
   const addSongToStream = async () => {
     if (!songUrl.trim()) {
       setError("Please enter a valid URL");
       return;
     }
+    if (isAddingSong) return; // Prevent multiple submissions
+
     try {
-      setIsLoading(true);
+      setIsAddingSong(true);
       const response = await axios.post("/api/streams", {
         type: "Youtube",
         userId: session?.user?.id,
@@ -242,10 +277,11 @@ export default function Dashboard() {
         await getStreams();
       }
     } catch (error) {
-      setError("Failed to add song to stream");
+      const errorMessage = error instanceof Error ? error.message : "Failed to add song to stream";
+      setError(errorMessage);
       console.error("Error adding song to stream:", error);
     } finally {
-      setIsLoading(false);
+      setIsAddingSong(false);
     }
   };
 
@@ -265,14 +301,6 @@ export default function Dashboard() {
       setIsLoading(false);
     }
   }
-
-  // Add useEffect to handle song changes
-  useEffect(() => {
-    if (currentSong?.url) {
-      // You can add any additional logic here when the song changes
-      console.log("Current song changed:", currentSong.title);
-    }
-  }, [currentSong?.url]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -350,38 +378,38 @@ export default function Dashboard() {
                 {currentSong && (
                   <CardContent className="py-2 px-3 text-white">
                     <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ThumbsUp className="h-5 w-5 text-green-400" />
-                      <span className="text-lg font-medium">
-                        {currentSong?._count?.upvotes} votes
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage
-                          src={"/google.png"}
-                          alt="creater of the song"
-                        />
-                        <AvatarFallback>
-                          {members[0]?.user?.name[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm text-white/70">
-                        Added by {}
-                        <span className="text-lg ml-1 font-medium">
-                          {session?.user?.name}
+                      <div className="flex items-center gap-2">
+                        <ThumbsUp className="h-5 w-5 text-green-400" />
+                        <span className="text-lg font-medium">
+                          {currentSong?._count?.upvotes} votes
                         </span>
-                      </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage
+                            src={"/google.png"}
+                            alt="creater of the song"
+                          />
+                          <AvatarFallback>
+                            {members[0]?.user?.name[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm text-white/70">
+                          Added by {}
+                          <span className="text-lg ml-1 font-medium">
+                            {session?.user?.name}
+                          </span>
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                    </CardContent>)}
+                  </CardContent>
+                )}
               </Card>
 
               {/* Song Queue */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-white">Up Next</h2>
-                  
                 </div>
                 <div className="rounded-lg border border-purple-500/20 bg-black/40 shadow-sm backdrop-blur-md">
                   <div className="p-4">
@@ -392,65 +420,63 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <Separator className="bg-purple-500/20" />
-                  {
-                    queue.length > 0 ? (
-                      <div className="divide-y divide-purple-500/20">
-                    {queue.map((song, index) => (
-                      <div
-                        key={song?.id}
-                        className="grid grid-cols-[auto_1fr_auto] items-center gap-4 p-4 text-white hover:bg-white/5"
-                      >
-                        <div className="flex items-center gap-4">
-                          <span className="w-8 text-center text-white/50">
-                            {index + 1}
-                          </span>
-                          <div className="relative h-10 w-10 overflow-hidden rounded">
-                            <Image
-                              src={song?.bigPic || "/images/google.svg"}
-                              fill
-                              alt={song?.title}
-                              className="object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = "/images/fallback.svg";
-                              }}
-                            />
+                  {queue.length > 0 ? (
+                    <div className="divide-y divide-purple-500/20">
+                      {queue.map((song, index) => (
+                        <div
+                          key={song?.id}
+                          className="grid grid-cols-[auto_1fr_auto] items-center gap-4 p-4 text-white hover:bg-white/5"
+                        >
+                          <div className="flex items-center gap-4">
+                            <span className="w-8 text-center text-white/50">
+                              {index + 1}
+                            </span>
+                            <div className="relative h-10 w-10 overflow-hidden rounded">
+                              <Image
+                                src={song?.bigPic || "/images/google.svg"}
+                                fill
+                                alt={song?.title}
+                                className="object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = "/images/fallback.svg";
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-medium">{song?.title}</div>
+                            <div className="text-sm text-white/70">
+                              {song?.creator}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 pr-2">
+                              {
+                                <span className="font-medium">
+                                  {song._count.upvotes}
+                                </span>
+                              }
+                            </div>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-green-400 hover:bg-green-500/20 hover:text-green-300"
+                              onClick={() =>
+                                handleVote(song.id, !!song.upvotes.length)
+                              }
+                            >
+                              <ThumbsUp className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
-                        <div>
-                          <div className="font-medium">{song?.title}</div>
-                          <div className="text-sm text-white/70">
-                            {song?.creator}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1 pr-2">
-                            {
-                              <span className="font-medium">
-                                {song._count.upvotes}
-                              </span>
-                            }
-                          </div>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-green-400 hover:bg-green-500/20 hover:text-green-300"
-                            onClick={() =>
-                              handleVote(song.id, !!song.upvotes.length)
-                            }
-                          >
-                            <ThumbsUp className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center h-20 bg-black/20">
-                        <p className="text-white/70">No song in queue</p>
-                      </div>
-                    )
-                  }
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-20 bg-black/20">
+                      <p className="text-white/70">No song in queue</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -461,7 +487,9 @@ export default function Dashboard() {
               <Card className="border-purple-500/20 bg-black/40 backdrop-blur-md text-white">
                 <CardContent className="p-6">
                   <h3 className="text-lg font-bold">Room: {room?.name}</h3>
-                  <p className="text-sm text-white/70">Created by {members[0]?.user?.name}</p>
+                  <p className="text-sm text-white/70">
+                    Created by {members[0]?.user?.name}
+                  </p>
                   <Separator className="my-4 bg-purple-500/20" />
                   <div className="space-y-4">
                     <div>
@@ -475,15 +503,10 @@ export default function Dashboard() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="border-purple-500/50  hover:bg-purple-500/20 text-black hover:text-white"
-                          onClick={() =>
-                          {
-                            navigator.clipboard.writeText(room?.code || "")
-                            setIsTextCopy(true)
-                          }
-                        }
+                          className="border-purple-500/50 hover:bg-purple-500/20 text-black hover:text-white"
+                          onClick={copyRoomCode}
                         >
-                          {isTextCopy ? "Copied" : "Copy"}
+                          {isTextCopy ? "Copied!" : "Copy"}
                         </Button>
                       </div>
                     </div>
@@ -511,7 +534,10 @@ export default function Dashboard() {
                           </Badge>
                         </div> */}
                         <div className="flex items-center justify-between bg-transparent">
-                          <Button className="bg-purple-700" onClick={() => playnext()}>
+                          <Button
+                            className="bg-purple-700"
+                            onClick={() => playnext()}
+                          >
                             <span className="text-sm ">Skip song</span>
                           </Button>
                           {/* <Badge
@@ -549,12 +575,15 @@ export default function Dashboard() {
                         </Avatar>
                         <div>
                           <div className="font-medium">{user.user.name}</div>
-                          {user.userType === 'host' && (
-                            <div className="text-xs text-purple-400">Room Host</div>
+                          {user.userType === "host" && (
+                            <div className="text-xs text-purple-400">
+                              Room Host
+                            </div>
                           )}
-                          {session?.user?.id === user.user.id && user.userType !== 'host' && (
-                            <div className="text-xs text-white/50">You</div>
-                          )}
+                          {session?.user?.id === user.user.id &&
+                            user.userType !== "host" && (
+                              <div className="text-xs text-white/50">You</div>
+                            )}
                         </div>
                       </div>
                     ))}
@@ -577,9 +606,10 @@ export default function Dashboard() {
                     </div>
                     <Button
                       className="w-full bg-purple-600 hover:bg-purple-700"
-                      onClick={() => addSongToStream()}
+                      onClick={addSongToStream}
+                      disabled={isAddingSong}
                     >
-                      Add to Queue
+                      {isAddingSong ? "Adding..." : "Add to Queue"}
                     </Button>
                   </div>
                 </CardContent>
