@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/auth.config";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+// @ts-ignore
 const CreateRoomSchema = z.object({
     roomCode: z.string(),
     roomName: z.string(),
