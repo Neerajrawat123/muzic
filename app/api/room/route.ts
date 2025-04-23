@@ -2,8 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/auth.config";
-
-
+import { Prisma } from "@prisma/client"
 
 export async function GET(req: NextRequest, ) {
 
