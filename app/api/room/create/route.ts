@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/auth.config";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 const CreateRoomSchema = z.object({
     roomCode: z.string(),
     roomName: z.string(),
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest, ) {
       );
     }
 
-    const space = await prisma.$transaction(async (tx) => {
+    const space = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const createdSpace = await tx.space.create({
           data: {
             name: roomData.roomName,

@@ -46,7 +46,7 @@ export async function GET(req: NextRequest, ) {
         
 
 
-          const space = await prisma.$transaction(async (tx) => {
+          const space = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             const room = await tx.space.findFirst({
                 where: {
                   code: roomCode,
