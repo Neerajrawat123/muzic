@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/auth.config";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+// @ts-ignore
 import { z } from "zod";
 
 const JoinRoomSchema = z.object({
