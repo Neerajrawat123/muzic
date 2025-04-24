@@ -31,17 +31,30 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, account, profile }) {
-      if (account && profile) {
-        token.email = profile.email as string;
-        token.id = account.access_token;
+      try {
+        if (account && profile) {
+          if (!profile.email) {
+            throw new Error("Email is required for authentication");
+          }
+          token.email = profile.email;
+          token.id = account.access_token;
+        }
+        return token;
+      } catch (error) {
+        console.error("Error in jwt callback:", error);
+        throw error;
       }
-      return token;
     },
+
     async session({ token, session }: { token: JWT; session: Session }) {
       try {
+        if (!token.email) {
+          throw new Error("Email is required for session");
+        }
+
         const user = await prisma.user.findUnique({
           where: {
-            email: token.email as string,
+            email: token.email,
           },
         });
 
@@ -56,9 +69,10 @@ export const authOptions: NextAuthOptions = {
         }
       } catch (error) {
         if (error instanceof PrismaClientInitializationError) {
+          console.error("Database connection error:", error);
           throw new Error("Internal server error");
         }
-        console.log(error);
+        console.error("Error in session callback:", error);
         throw error;
       }
 
@@ -66,14 +80,21 @@ export const authOptions: NextAuthOptions = {
     },
 
     async signIn({ account, profile }) {
-      if (!account || !profile) return false;
+      if (!account || !profile) {
+        console.error("Missing account or profile information");
+        return false;
+      }
 
       try {
         if (account.provider === "google") {
+          if (!profile.email) {
+            throw new Error("Email is required for Google authentication");
+          }
+
           // Check if user exists
           const existingUser = await prisma.user.findUnique({
             where: {
-              email: profile.email || "",
+              email: profile.email,
             },
           });
 
@@ -81,18 +102,49 @@ export const authOptions: NextAuthOptions = {
             // Create new user
             await prisma.user.create({
               data: {
-                email: profile.email || "",
+                email: profile.email,
                 name: profile.name || "",
                 providers: "Google",
               },
             });
-            return true;
           }
 
           return true;
         }
+
+        if (account.provider === "github") {
+          if (!profile.email) {
+            throw new Error("Email is required for GitHub authentication");
+          }
+
+          // Check if user exists
+          const existingUser = await prisma.user.findUnique({
+            where: {
+              email: profile.email,
+            },
+          });
+
+          if (!existingUser) {
+            // Create new user
+            await prisma.user.create({
+              data: {
+                email: profile.email,
+                name: profile.name || "",
+                providers: "Github",
+              },
+            });
+          }
+
+          return true;
+        }
+
+        console.error(`Unsupported provider: ${account.provider}`);
         return false;
       } catch (error) {
+        if (error instanceof PrismaClientInitializationError) {
+          console.error("Database connection error:", error);
+          throw new Error("Internal server error");
+        }
         console.error("Error in signIn callback:", error);
         return false;
       }
